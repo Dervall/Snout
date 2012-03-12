@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using Piglet.Parser;
@@ -12,6 +13,34 @@ namespace Snout
     class DslParser
     {
         public List<ITerminal<object>> Terminals { get; set; }
+
+        static string GetFullName(Type t, IEnumerable<bool> transformFlags)
+        {
+            if (!t.IsGenericType)
+            {
+                if (transformFlags != null && transformFlags.Take(1).First())
+                    return "dynamic";
+                return t.Name;
+            }
+            var sb = new StringBuilder();
+
+            sb.Append(t.Name.Substring(0, t.Name.LastIndexOf("`")));
+
+            sb.Append(t.GetGenericArguments().Aggregate("<",
+                                                        (aggregate, type) =>
+                                                            {
+                                                                transformFlags = transformFlags.Skip(1);
+
+                                                                return aggregate +
+                                                                (aggregate == "<" ? "" : ",") +
+                                                                GetFullName(type,
+                                                                            transformFlags );
+                                                            }
+                          ));
+            sb.Append(">");
+
+            return sb.ToString();
+        }
 
         public IParser<object> CreateDslParserFromBnf(string input, Type builderType)
         {
@@ -28,13 +57,57 @@ namespace Snout
             var nonTerminals = new Dictionary<string, INonTerminal<object>>();
             var terminals = new Dictionary<string, ITerminal<object>>();
 
-            foreach (var memberInfo in builderType.GetMethods().OfType<MemberInfo>().Union(builderType.GetProperties()))
+            foreach (var methodInfo in builderType.GetMethods())
             {
-                var attribute = memberInfo.GetCustomAttributes(true).OfType<BuilderMethodAttribute>().FirstOrDefault();
+                var attribute = methodInfo.GetCustomAttributes(true).OfType<BuilderMethodAttribute>().FirstOrDefault();
                 if (attribute != null)
                 {
                     var terminal = dslConfigurator.CreateTerminal(Regex.Escape(attribute.DslName));
-                    terminal.DebugName = attribute.DslName;
+                    var method = new StringBuilder(attribute.FluentName);
+                    
+                    // If there are generic type arguments to the builder method these will need to be transferred to the
+                    // new interface method
+                    var genericArguments = methodInfo.GetGenericArguments();
+                    if (genericArguments.Any())
+                    {
+                        method.Append("<");
+                        var dynamicAttribute = methodInfo.GetCustomAttributes(typeof(DynamicAttribute), true).OfType<DynamicAttribute>().FirstOrDefault();
+                        IEnumerable<bool> transformFlags = dynamicAttribute == null ? null : dynamicAttribute.TransformFlags;
+                        method.Append(string.Join(", ", genericArguments.Select(f =>
+                                                                      {
+                                                                          var ret = GetFullName(f, transformFlags);
+                                                                          if (transformFlags != null)
+                                                                            transformFlags = transformFlags.Skip(1);
+                                                                          return ret;
+                                                                      })));
+                        method.Append(">");
+                    }
+                    
+                    
+
+                    // Append stuff to the debug name to make it call the builder method
+                    // and to carry along the properties
+                    var parameters = methodInfo.GetParameters();
+                    if (!parameters.Any() && attribute.UseProperty)
+                    {
+                        // No parameters and user wants this rendered as a property
+                        //methodInfo.
+                    }
+                    else
+                    {
+                        // There is supposed to be a method call                        
+                        method.AppendFormat("({0})",
+                            parameters.Select(f =>
+                                                  {
+                                                      var dynamicAttribute = f.GetCustomAttributes(typeof (DynamicAttribute), true).OfType<DynamicAttribute>().FirstOrDefault();
+
+                                                      return string.Format("{0} {1}", GetFullName(f.ParameterType,
+                                                          dynamicAttribute != null ? dynamicAttribute.TransformFlags : null),
+                                                                    f.Name);
+                                                  }).ToArray<object>());
+                    }
+
+                    terminal.DebugName = method.ToString();
                     terminals.Add(attribute.DslName, terminal);
                     Terminals.Add(terminal);
                 }
@@ -74,7 +147,7 @@ namespace Snout
 
             rule.AddProduction(name, ":", ruleElementList, ";").SetReduceFunction(f =>
             {
-                ((List<List<object>>)f[2]).ForEach(a => ((INonTerminal<object>)f[0]).AddProduction(a.ToArray()));
+                ((List<List<object>>)f[2]).ForEach(a => ((INonTerminal<object>) f[0]).AddProduction(a.ToArray()));
                 return null;
             });
 
@@ -82,7 +155,7 @@ namespace Snout
             ruleElementList.AddProduction(optionalRuleElement).SetReduceFunction(f => f[0]);
 
             optionalRuleElement.AddProduction(ruleElement).SetReduceFunction(f => new List<List<object>> {(List<object>) f[0]});
-            optionalRuleElement.AddProduction().SetReduceFunction(f => new List<List<object>>());
+            optionalRuleElement.AddProduction().SetReduceFunction(f =>  new List<List<object>> {new List<object>()} );
 
             ruleElement.AddProduction(ruleElement, name).SetReduceFunction(f => ((List<object>)f[0]).Union(new List<object> {f[1]}).ToList());
             ruleElement.AddProduction(name).SetReduceFunction(f => new List<object> {f[0]});

@@ -1,9 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
-using Piglet.Parser;
 using Piglet.Parser.Configuration;
 using Piglet.Parser.Configuration.Fluent;
 using Piglet.Parser.Construction;
@@ -13,7 +9,6 @@ namespace Snout
     class Program
     {
         private static IList<ITerminal<object>> terminals;
-
         
         private class SetMember
         {
@@ -245,22 +240,19 @@ namespace Snout
             return FindEndOfReduceChain(action, terminal, state, table);
 
         }
-
-        private static void Test()
-        {
-            
-        }
     }
-
-    
 
     internal class PigletDslBuilder
     {
         [BuilderMethod("Followed")]
-        public int NextElement { get; set; }
+        public void NextElement()
+        {
+        }
 
         [BuilderMethod("IsMadeUp")]
-        public int StartRule { get; set; }
+        public void StartRule()
+        {
+        }
 
         [BuilderMethod("ByLiteral", "By")]
         public void AddLiteral(string literal)
@@ -293,13 +285,19 @@ namespace Snout
         }
 
         [BuilderMethod("ThatIs")]
-        public int StartElementSpecification { get; set; }
+        public void StartElementSpecification()
+        {
+        }
 
         [BuilderMethod(("Optional"))]
-        public int SetOptionalFlag { get; set; }
+        public void SetOptionalFlag()
+        {
+        }
 
         [BuilderMethod(("And"))]
-        public int NextElementAttribute { get; set; }
+        public void NextElementAttribute()
+        {
+        }
 
         [BuilderMethod("SeparatedBy")]
         public void SetListSeparator(string separator)
@@ -307,7 +305,9 @@ namespace Snout
         }
 
         [BuilderMethod("Or")]
-        public int BeginNextProduction { get; set; }
+        public void BeginNextProduction()
+        {
+        }
 
         [BuilderMethod("WhenFound")]
         public void SetReductionRule(Func<dynamic, object> func)

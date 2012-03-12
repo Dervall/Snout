@@ -6,6 +6,7 @@ namespace Snout
     {
         public string DslName { get; set; }
         public string FluentName { get; set; }
+        public bool UseProperty { get; set; }
 
         public BuilderMethodAttribute(string dslName) : this(dslName, dslName)
         {
@@ -15,6 +16,9 @@ namespace Snout
         {
             FluentName = fluentName;
             DslName = dslName;
+
+            // Always build properties if option is available
+            UseProperty = true;
         }
     }
 }
