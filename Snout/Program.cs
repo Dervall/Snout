@@ -5,23 +5,16 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Piglet.Parser;
 using Piglet.Parser.Configuration;
+using Piglet.Parser.Configuration.Fluent;
 using Piglet.Parser.Construction;
 
 namespace Snout
 {
     class Program
     {
-        private static IList<ITerminal<int>> terminals;
-        private static IParserConfigurator<int> configurator;
+        private static IList<ITerminal<object>> terminals;
 
-        static ITerminal<int> Terminal(string contents)
-        {
-            var t = configurator.CreateTerminal(Regex.Escape(contents));
-            t.DebugName = contents;
-            terminals.Add(t);
-            return t;
-        }
-
+        
         private class SetMember
         {
             public SetMember(int ns, string c)
@@ -59,104 +52,48 @@ namespace Snout
 
         static void Main(string[] args)
         {
-            configurator = ParserFactory.Configure<int>();
+            string input = @"
 
-            var rule = configurator.CreateNonTerminal();
-            rule.DebugName = "rule";
+            rule : IsMadeUp rulePartList;
 
-            var listElements = configurator.CreateNonTerminal();
-            listElements.DebugName = "listElements";
+            rulePartList : rulePartList Or rulePart 
+                         | rulePart ;
+            
+            rulePart : listElements optionalWhenFound ;
 
-            var by = configurator.CreateNonTerminal();
-            by.DebugName = "by";
-            var byList = configurator.CreateNonTerminal();
-            var bySimple = configurator.CreateNonTerminal();
+            optionalWhenFound : WhenFound 
+                              | ;
 
-            var listBys = configurator.CreateNonTerminal();
-            var simpleBys = configurator.CreateNonTerminal();
+            listElements : listElements Followed by 
+                         | by ;
 
-            var optionalNaming = configurator.CreateNonTerminal();
+            by : ByLiteral | bySimple | byList ;
 
-            var optionalListSettings = configurator.CreateNonTerminal();
-            var listOfListSettings = configurator.CreateNonTerminal();
-            var listSetting = configurator.CreateNonTerminal();
+            byList : listBys optionalNaming optionalListSettings ;
 
-            var optionalSimpleSettings = configurator.CreateNonTerminal();
+            listBys : ByTypedListOf 
+                    | ByListOf ;
 
-            var rulePart = configurator.CreateNonTerminal();
-            var rulePartList = configurator.CreateNonTerminal();
+            optionalListSettings : ThatIs listOfListSettings
+                                 | ;
 
-            terminals = new List<ITerminal<int>>();
+            listOfListSettings : listOfListSettings And listSetting 
+                               | listSetting;
 
-            var IsMadeUp = Terminal("IsMadeUp");
-            var Followed = Terminal("Followed");
+            listSetting : Optional | SeparatedBy ;
 
-            var ByLiteral = Terminal("By(string literal)");
-            var ByTExpressionType = Terminal("By<TExpressionType>()");
-            var ByExpression = Terminal("By(IExpressionConfigurator expression)");
-            var ByTypedListOf = Terminal("ByListOf<TListType>(IRule listElement)");
-            var ByListOf = Terminal("ByListOf(IRule listElement)");
+            bySimple : simpleBys optionalNaming optionalSimpleSettings;
 
-            var As = Terminal("As(string name)");
+            simpleBys : ByTExpressionType | ByExpression;
 
-            var ThatIs = Terminal("ThatIs");
-            var Optional = Terminal("Optional");
-            var And = Terminal("And");
-            var SeparatedBy = Terminal("SeparatedBy(string separator)");
-            var Or = Terminal("Or");
-            var WhenFound = Terminal("WhenFound(Func<dynamic, object> func)");
+            optionalSimpleSettings : ThatIs | ;
 
-            rule.AddProduction(IsMadeUp, rulePartList);
+            optionalNaming : As | ;
+            ";
 
-            rulePartList.AddProduction(rulePartList, Or, rulePart);
-            rulePartList.AddProduction(rulePart);
-
-            var optionalWhenFound = configurator.CreateNonTerminal();
-            rulePart.AddProduction(listElements, optionalWhenFound);
-
-            optionalWhenFound.AddProduction(WhenFound);
-            optionalWhenFound.AddProduction();
-
-            listElements.AddProduction(listElements, Followed, by);
-            listElements.AddProduction(by);
-
-            by.AddProduction(ByLiteral);
-            by.AddProduction(bySimple);
-            by.AddProduction(byList);
-
-            byList.AddProduction(listBys, optionalNaming, optionalListSettings);
-
-            listBys.AddProduction(ByTypedListOf);
-            listBys.AddProduction(ByListOf);
-
-            optionalListSettings.AddProduction(ThatIs, listOfListSettings);
-            optionalListSettings.AddProduction();
-
-            listOfListSettings.AddProduction(listOfListSettings, And, listSetting);
-            listOfListSettings.AddProduction(listSetting);
-
-            listSetting.AddProduction(Optional);
-            listSetting.AddProduction(SeparatedBy);
-
-            bySimple.AddProduction(simpleBys, optionalNaming, optionalSimpleSettings);
-
-            simpleBys.AddProduction(ByTExpressionType);
-            simpleBys.AddProduction(ByExpression);
-
-            optionalSimpleSettings.AddProduction(ThatIs);
-            optionalSimpleSettings.AddProduction();
-
-
-
-            optionalNaming.AddProduction(As);
-            optionalNaming.AddProduction();
-
-
-
-            configurator.LexerSettings.CreateLexer = false;
-
-            var parser = configurator.CreateParser();
-
+            var dslParser = new DslParser();
+            var parser = dslParser.CreateDslParserFromBnf(input, typeof(PigletDslBuilder));
+            terminals = dslParser.Terminals;
             var table = parser.ParseTable;
 
             var states = new List<List<SetMember>>();
@@ -166,8 +103,6 @@ namespace Snout
             for (int state = 0; state < table.StateCount; ++state)
             {
                 var items = new List<SetMember>();
-
-
 
                 for (int terminal = 0; terminal < terminals.Count; ++terminal)
                 {
@@ -289,7 +224,9 @@ namespace Snout
             int apa = 3;
         }
 
-        private static int FindEndOfReduceChain(int action, int terminal, int state, IParseTable<int> table)
+        
+
+        private static int FindEndOfReduceChain(int action, int terminal, int state, IParseTable<object> table)
         {
             if (action > 0)
                 return action;
@@ -307,6 +244,74 @@ namespace Snout
 
             return FindEndOfReduceChain(action, terminal, state, table);
 
+        }
+
+        private static void Test()
+        {
+            
+        }
+    }
+
+    
+
+    internal class PigletDslBuilder
+    {
+        [BuilderMethod("Followed")]
+        public int NextElement { get; set; }
+
+        [BuilderMethod("IsMadeUp")]
+        public int StartRule { get; set; }
+
+        [BuilderMethod("ByLiteral", "By")]
+        public void AddLiteral(string literal)
+        {
+        }
+
+        [BuilderMethod("ByTExpressionType", "By")]
+        public void AddType<TExpressionType>()
+        {
+        }
+
+        [BuilderMethod("ByExpression", "By")]
+        public void AddExpression(IExpressionConfigurator expression)
+        {
+        }
+
+        [BuilderMethod("ByTypedListOf", "ByListOf")]
+        public void AddTypedList<TListType>(IRule listElement)
+        {
+        }
+
+        [BuilderMethod("ByListOf", "ByListOf")]
+        public void AddListOf(IRule listElement)
+        {
+        }
+
+        [BuilderMethod("As")]
+        public void SetProductionElementName(string name)
+        {
+        }
+
+        [BuilderMethod("ThatIs")]
+        public int StartElementSpecification { get; set; }
+
+        [BuilderMethod(("Optional"))]
+        public int SetOptionalFlag { get; set; }
+
+        [BuilderMethod(("And"))]
+        public int NextElementAttribute { get; set; }
+
+        [BuilderMethod("SeparatedBy")]
+        public void SetListSeparator(string separator)
+        {
+        }
+
+        [BuilderMethod("Or")]
+        public int BeginNextProduction { get; set; }
+
+        [BuilderMethod("WhenFound")]
+        public void SetReductionRule(Func<dynamic, object> func)
+        {
         }
     }
 }
