@@ -20,23 +20,26 @@ namespace Snout
             {
                 if (transformFlags != null && transformFlags.Take(1).First())
                     return "dynamic";
+
+                // Translate String into string and Object into object
+                if (t.Name == "Object") return "object";
+                if (t.Name == "String") return "string";
+
                 return t.Name;
             }
-            var sb = new StringBuilder();
 
+            var sb = new StringBuilder();
             sb.Append(t.Name.Substring(0, t.Name.LastIndexOf("`")));
 
-            sb.Append(t.GetGenericArguments().Aggregate("<",
-                                                        (aggregate, type) =>
-                                                            {
-                                                                transformFlags = transformFlags.Skip(1);
+            sb.Append(t.GetGenericArguments().Aggregate("<", (aggregate, type) =>
+            {
+                transformFlags = transformFlags.Skip(1);
 
-                                                                return aggregate +
-                                                                (aggregate == "<" ? "" : ",") +
-                                                                GetFullName(type,
-                                                                            transformFlags );
-                                                            }
-                          ));
+                return aggregate +
+                (aggregate == "<" ? "" : ",") +
+                GetFullName(type,
+                            transformFlags );
+            }));
             sb.Append(">");
 
             return sb.ToString();
@@ -88,10 +91,18 @@ namespace Snout
                     // Append stuff to the debug name to make it call the builder method
                     // and to carry along the properties
                     var parameters = methodInfo.GetParameters();
+                    var builderCall = string.Format("{0}({1})", methodInfo.Name, string.Join(", ", parameters.Select(f => f.Name).ToArray()));
                     if (!parameters.Any() && attribute.UseProperty)
                     {
                         // No parameters and user wants this rendered as a property
-                        //methodInfo.
+                        method.Append(@"
+    {{
+        get
+        {{
+            builder."+builderCall+@";
+            return new {0}{1}(builder);
+        }}
+    }}");
                     }
                     else
                     {
@@ -105,6 +116,11 @@ namespace Snout
                                                           dynamicAttribute != null ? dynamicAttribute.TransformFlags : null),
                                                                     f.Name);
                                                   }).ToArray<object>());
+                        method.Append(@"
+    {{
+        builder." + builderCall + @";
+        return new {0}{1}(builder);
+    }}");
                     }
 
                     terminal.DebugName = method.ToString();

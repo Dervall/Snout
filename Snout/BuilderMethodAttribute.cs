@@ -2,7 +2,7 @@ using System;
 
 namespace Snout
 {
-    internal class BuilderMethodAttribute : Attribute
+    public class BuilderMethodAttribute : Attribute
     {
         public string DslName { get; set; }
         public string FluentName { get; set; }
