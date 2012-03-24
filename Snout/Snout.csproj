@@ -34,6 +34,17 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Jolt, Version=0.4.3627.40535, Culture=neutral, PublicKeyToken=f6adcb4232d754f0, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>lib\Jolt.dll</HintPath>
+    </Reference>
+    <Reference Include="Jolt.Testing.GeneratedTypes, Version=1.0.0.0, Culture=neutral, PublicKeyToken=f6adcb4232d754f0, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>lib\Jolt.Testing.GeneratedTypes.dll</HintPath>
+    </Reference>
+    <Reference Include="NDesk.Options, Version=0.2.1.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\NDesk.Options.0.2.1\lib\NDesk.Options.dll</HintPath>
+    </Reference>
     <Reference Include="Piglet">
       <HintPath>..\packages\Piglet.1.0.0\lib\Piglet.dll</HintPath>
     </Reference>
@@ -46,8 +57,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="BuilderMethodAttribute.cs" />
-    <Compile Include="BuilderPrefixAttribute.cs" />
+    <Compile Include="BuilderMethod.cs" />
     <Compile Include="DslBuilder.cs" />
     <Compile Include="DslParser.cs" />
     <Compile Include="Program.cs" />

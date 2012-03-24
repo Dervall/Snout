@@ -1,7 +1,11 @@
 using System;
+using System.CodeDom.Compiler;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
+using System.Xml.Linq;
+using Jolt;
 using Piglet.Parser.Construction;
 
 namespace Snout
@@ -45,17 +49,23 @@ namespace Snout
 
         private readonly string input;
         private readonly Type type;
+        private readonly XmlDocCommentReader commentReader;
+        private readonly string syntaxStateClassname;
+        private readonly string outputNamespace;
 
-        public DslBuilder(string input, Type type)
+        public DslBuilder(XElement builderClassNode, XmlDocCommentReader commentReader, Type builderType)
         {
-            this.input = input;
-            this.type = type;
+            input = builderClassNode.Value;
+            syntaxStateClassname = builderClassNode.Attributes().Single(f => f.Name == "name").Value;
+            outputNamespace = builderClassNode.Attributes().Single(f => f.Name == "namespace").Value;
+            type = builderType;
+            this.commentReader = commentReader;
         }
 
         public string CreateDslCode()
         {
             var dslParser = new DslParser();
-            var parser = dslParser.CreateDslParserFromBnf(input, type);
+            var parser = dslParser.CreateDslParserFromBnf(input, type, commentReader);
             
             var terminals = dslParser.Terminals;
             var table = parser.ParseTable;
@@ -93,28 +103,40 @@ namespace Snout
             ReduceStates(states);
 
             // Create the output string
-            var output = new StringBuilder();           
+            var sb = new StringBuilder();
+            var output = new IndentedTextWriter(new StringWriter(sb));
+
+            if (type.Namespace != outputNamespace){
+                output.WriteLine(string.Format("using {0};", type.Namespace));
+                output.WriteLine();
+            }
+            output.WriteLine(string.Format("namespace {0}", outputNamespace));
+            output.WriteLine("{");
+            output.Indent++;
 
             for (int i = 0; i < states.Count; ++i)
             {
                 var state = states[i];
                 if (state != null)
                 {
-                    output.AppendLine(string.Format("class SyntaxState{0}", i));
-                    output.AppendLine("{");
+                    output.WriteLine(string.Format("public class {0}{1}", syntaxStateClassname, i == 0 ? "" : i.ToString()));
+                    output.WriteLine("{");
+                    output.Indent++;
 
                     foreach (var setMember in state)
                     {
-                        output.AppendFormat(@"
-    SyntaxState{0} ", setMember.NextState);
-                        output.AppendLine(String.Format(setMember.Content, "SyntaxState", setMember.NextState));
+                        output.Write(@"{1}{0} ", setMember.NextState, syntaxStateClassname);
+                        output.WriteLine(String.Format(setMember.Content, syntaxStateClassname, setMember.NextState));
                     }
-
-                    output.AppendLine("}");
+                    output.Indent--;
+                    output.WriteLine("}");
+                    output.WriteLine();
                 }
             }
-
-            return output.ToString();
+            output.Indent--;
+            output.WriteLine("}");
+            output.Close();
+            return sb.ToString();
         }
 
         private void ReduceStates(List<List<SetMember>> states)

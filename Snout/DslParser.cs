@@ -5,12 +5,14 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
+using Jolt;
 using Piglet.Parser;
 using Piglet.Parser.Configuration;
+using Convert = System.Convert;
 
 namespace Snout
 {
-    class DslParser
+    public class DslParser
     {
         public List<ITerminal<object>> Terminals { get; set; }
 
@@ -45,7 +47,7 @@ namespace Snout
             return sb.ToString();
         }
 
-        public IParser<object> CreateDslParserFromBnf(string input, Type builderType)
+        public IParser<object> CreateDslParserFromBnf(string input, Type builderType, XmlDocCommentReader commentReader)
         {
             // Create a list that will hold the terminals for this given input
             Terminals = new List<ITerminal<object>>();
@@ -62,7 +64,9 @@ namespace Snout
 
             foreach (var methodInfo in builderType.GetMethods())
             {
-                var attribute = methodInfo.GetCustomAttributes(true).OfType<BuilderMethodAttribute>().FirstOrDefault();
+                // Read the xml documentation for this method. Look for the buildermethod tag
+                // If this is found, we create a suitable terminal for this method
+                var attribute = GetBuilderMethod(methodInfo, commentReader);
                 if (attribute != null)
                 {
                     var terminal = dslConfigurator.CreateTerminal(Regex.Escape(attribute.DslName));
@@ -96,13 +100,13 @@ namespace Snout
                     {
                         // No parameters and user wants this rendered as a property
                         method.Append(@"
-    {{
-        get
         {{
-            builder."+builderCall+@";
-            return new {0}{1}(builder);
-        }}
-    }}");
+            get
+            {{
+                builder."+builderCall+@";
+                return new {0}{1}(builder);
+            }}
+        }}");
                     }
                     else
                     {
@@ -117,10 +121,10 @@ namespace Snout
                                                                     f.Name);
                                                   }).ToArray<object>());
                         method.Append(@"
-    {{
-        builder." + builderCall + @";
-        return new {0}{1}(builder);
-    }}");
+        {{
+            builder." + builderCall + @";
+            return new {0}{1}(builder);
+        }}");
                     }
 
                     terminal.DebugName = method.ToString();
@@ -181,6 +185,37 @@ namespace Snout
             
             return dslConfigurator.CreateParser();
         }
-    }
 
+        private BuilderMethod GetBuilderMethod(MethodInfo methodInfo, XmlDocCommentReader commentReader)
+        {
+            var comments = commentReader.GetComments(methodInfo);
+
+            if (comments != null)
+            {
+                // Look for a buildermethod subnode. If this is found create a BuilderMethod instance
+                var builderMethodNode = comments.Descendants().SingleOrDefault(f => f.Name == "buildermethod");
+                if (builderMethodNode != null)
+                {
+                    Func<string, string, string> attributeValueOrDefault = (attributeName, defaultValue) =>
+                    {
+                        var attribute = builderMethodNode.Attributes().SingleOrDefault(n => n.Name == attributeName);
+                        return attribute == null ? defaultValue : attribute.Value;
+                    };
+
+                    string fluentName = builderMethodNode.Attributes().Single(f => f.Name == "name").Value;
+                    string dslName = attributeValueOrDefault("dslname", fluentName);
+                    bool useProperty = Convert.ToBoolean(attributeValueOrDefault("useproperty", "true"));
+
+                    return new BuilderMethod
+                               {
+                                   FluentName = fluentName,
+                                   DslName = dslName,
+                                   UseProperty = useProperty
+                               };
+                }
+            }
+
+            return null;
+        }
+    }
 }

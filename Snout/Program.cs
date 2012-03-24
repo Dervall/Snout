@@ -1,9 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
+using System.IO;
+using Jolt;
 using System.Reflection;
-using Piglet.Parser.Configuration;
-using Piglet.Parser.Configuration.Fluent;
-using Piglet.Parser.Construction;
+using System.Linq;
+using NDesk.Options;
 
 namespace Snout
 {
@@ -11,123 +11,73 @@ namespace Snout
     {
         static void Main(string[] args)
         {
-            string input = @"
+            string assemblyPath = null;
+            string docPath = null;
+            string outputPath = null;
 
-            rule : IsMadeUp rulePartList;
+            var optionSet = new OptionSet
+            {
+                { "a=|assembly=", "Path to assembly to use", f => assemblyPath = f },
+                { "d=|doc=", "Path to documentation to use", f => docPath = f },
+                { "o=|output=", "Output path", f => outputPath = f }
+            };
 
-            rulePartList : rulePartList Or rulePart 
-                         | rulePart ;
-            
-            rulePart : listElements optionalWhenFound ;
+            try
+            {
+                optionSet.Parse(args);
+            }
+            catch (OptionException)
+            {
+                Usage(optionSet);
+                return;
+            }
 
-            optionalWhenFound : WhenFound 
-                              | ;
+            if (assemblyPath == null)
+            {
+                Usage(optionSet);
+                return;
+            }
 
-            listElements : listElements Followed by 
-                         | by ;
+            if (docPath == null)
+            {
+                docPath = Path.GetFileNameWithoutExtension(assemblyPath) + ".xml";
+            }
 
-            by : ByLiteral | bySimple | byList ;
+            if (outputPath == null)
+            {
+                outputPath = Directory.GetCurrentDirectory();
+            }
 
-            byList : listBys optionalNaming optionalListSettings ;
+            var targetAssembly = Assembly.LoadFile(assemblyPath);
+            var commentReader = new XmlDocCommentReader(docPath);
 
-            listBys : ByTypedListOf 
-                    | ByListOf ;
+            foreach (var type in targetAssembly.GetTypes())
+            {
+                var comments = commentReader.GetComments(type);
+                if (comments != null)
+                {
+                    var builderClassNode = comments.Descendants().FirstOrDefault(f => f.Name == "builderclass");
+                    if (builderClassNode != null)
+                    {
+                        var outputFile = string.Format("{0}.cs", builderClassNode.Attributes().Single(f => f.Name == "name").Value);
 
-            optionalListSettings : ThatIs listOfListSettings
-                                 | ;
+                        var dslBuilder = new DslBuilder(builderClassNode, commentReader, type);
+                        string dslCode = dslBuilder.CreateDslCode();
 
-            listOfListSettings : listOfListSettings And listSetting 
-                               | listSetting;
-
-            listSetting : Optional | SeparatedBy ;
-
-            bySimple : simpleBys optionalNaming optionalSimpleSettings;
-
-            simpleBys : ByTExpressionType | ByExpression;
-
-            optionalSimpleSettings : ThatIs | ;
-
-            optionalNaming : As | ;
-            ";
-
-            var dslBuilder = new DslBuilder(input, typeof(PigletDslBuilder));
-            string dslCode = dslBuilder.CreateDslCode();
-
-            Console.WriteLine(dslCode);
-        }
-    }
-
-    [BuilderPrefix("PigletSyntaxState")]
-    internal class PigletDslBuilder
-    {
-        [BuilderMethod("Followed")]
-        public void NextElement()
-        {
-        }
-
-        [BuilderMethod("IsMadeUp")]
-        public void StartRule()
-        {
-        }
-
-        [BuilderMethod("ByLiteral", "By")]
-        public void AddLiteral(string literal)
-        {
+                        using (var fileWriter = new StreamWriter(new FileStream(Path.Combine(outputPath, outputFile), FileMode.OpenOrCreate, FileAccess.Write)))
+                        {
+                            fileWriter.Write(dslCode);
+                        }
+                    }
+                }
+            }
         }
 
-        [BuilderMethod("ByTExpressionType", "By")]
-        public void AddType<TExpressionType>()
+        private static void Usage(OptionSet optionSet)
         {
-        }
-
-        [BuilderMethod("ByExpression", "By")]
-        public void AddExpression(IExpressionConfigurator expression)
-        {
-        }
-
-        [BuilderMethod("ByTypedListOf", "ByListOf")]
-        public void AddTypedList<TListType>(IRule listElement)
-        {
-        }
-
-        [BuilderMethod("ByListOf", "ByListOf")]
-        public void AddListOf(IRule listElement)
-        {
-        }
-
-        [BuilderMethod("As")]
-        public void SetProductionElementName(string name)
-        {
-        }
-
-        [BuilderMethod("ThatIs")]
-        public void StartElementSpecification()
-        {
-        }
-
-        [BuilderMethod(("Optional"))]
-        public void SetOptionalFlag()
-        {
-        }
-
-        [BuilderMethod(("And"))]
-        public void NextElementAttribute()
-        {
-        }
-
-        [BuilderMethod("SeparatedBy")]
-        public void SetListSeparator(string separator)
-        {
-        }
-
-        [BuilderMethod("Or")]
-        public void BeginNextProduction()
-        {
-        }
-
-        [BuilderMethod("WhenFound")]
-        public void SetReductionRule(Func<dynamic, object> func)
-        {
+            Console.WriteLine("Usage");
+            optionSet.WriteOptionDescriptions(Console.Out);
+                
         }
     }
 }
