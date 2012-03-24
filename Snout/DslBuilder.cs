@@ -112,6 +112,10 @@ namespace Snout
             var sb = new StringBuilder();
             var output = new IndentedTextWriter(new StringWriter(sb));
 
+            // This is so common that we might as well print it out to start with
+            output.WriteLine("using System;");
+            output.WriteLine("using System.ComponentModel;");
+
             if (type.Namespace != outputNamespace){
                 output.WriteLine(string.Format("using {0};", type.Namespace));
                 output.WriteLine();
@@ -120,21 +124,40 @@ namespace Snout
             output.WriteLine("{");
             output.Indent++;
 
+            output.WriteLine("[EditorBrowsable(EditorBrowsableState.Never)]");
+            output.WriteLine("public interface IHide{0}ObjectMembers", syntaxStateClassname);
+            output.WriteLine("{");
+            output.Indent++;
+            output.WriteLine("[EditorBrowsable(EditorBrowsableState.Never)]");
+            output.WriteLine("Type GetType();");
+            output.WriteLine("");
+            output.WriteLine("[EditorBrowsable(EditorBrowsableState.Never)]");
+            output.WriteLine("int GetHashCode();");
+            output.WriteLine("");
+            output.WriteLine("[EditorBrowsable(EditorBrowsableState.Never)]");
+            output.WriteLine("string ToString();");
+            output.WriteLine("");
+            output.WriteLine("[EditorBrowsable(EditorBrowsableState.Never)]");
+            output.WriteLine("bool Equals(object obj);");
+            output.Indent--;
+            output.WriteLine("}");
+            output.WriteLine();
+
             for (int i = 0; i < states.Count; ++i)
             {
                 var state = states[i];
                 if (state != null && state.Count > 0)
                 {
                     var className = string.Format("{0}{1}", syntaxStateClassname, i == 0 ? "" : i.ToString());
-                    output.WriteLine(string.Format("public class {0}", className));
+                    output.WriteLine(string.Format("public class {0} : IHide{1}ObjectMembers", className, syntaxStateClassname));
                     output.WriteLine("{");
                     output.Indent++;
 
                     // Create a member called builder that accepts the underlying builder class
                     // and a matching constructor
-                    output.WriteLine("private {0} builder;", type.Name);
+                    output.WriteLine("private readonly {0} builder;", type.Name);
                     output.WriteLine();
-                    output.WriteLine("public {0}({1} builder) {{ this.builder = builder; }}", className, type.Name);
+                    output.WriteLine("internal {0}({1} builder) {{ this.builder = builder; }}", className, type.Name);
 
                     foreach (var setMember in state)
                     {
@@ -143,8 +166,8 @@ namespace Snout
                         {
                             output.WriteLine(docLine.Trim());
                         }
-                        output.Write(@"public {1}{0} ", setMember.NextState, syntaxStateClassname);
-                        output.WriteLine(String.Format(setMember.Content, syntaxStateClassname, setMember.NextState));
+                        output.Write(@"public {1}{0} ", setMember.NextState == 0 ? "" : setMember.NextState.ToString(), syntaxStateClassname);
+                        output.WriteLine(String.Format(setMember.Content, syntaxStateClassname, setMember.NextState == 0 ? "" : setMember.NextState.ToString()));
                     }
                     output.Indent--;
                     output.WriteLine("}");

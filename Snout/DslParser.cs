@@ -90,14 +90,17 @@ namespace Snout
                                                                       })));
                         method.Append(">");
                     }
-                    
-                    
+
+                    Func<string, string> applyBracersIfNotEmpty = f => f.Length > 0 ? "<" + f + ">" : "";
 
                     // Append stuff to the debug name to make it call the builder method
                     // and to carry along the properties
                     var parameters = methodInfo.GetParameters();
-                    var builderCall = string.Format("{0}({1})", methodInfo.Name, string.Join(", ", parameters.Select(f => f.Name).ToArray()));
-                    if (!parameters.Any() && attribute.UseProperty)
+                    var builderCall = string.Format("{0}{1}({2})", 
+                        methodInfo.Name, 
+                        applyBracersIfNotEmpty(string.Join(",",methodInfo.GetGenericArguments().Select(f => f.Name))),
+                        string.Join(", ", parameters.Select(f => f.Name).ToArray()));
+                    if (!parameters.Any() && !methodInfo.GetGenericArguments().Any() && attribute.UseProperty)
                     {
                         // No parameters and user wants this rendered as a property
                         method.Append(@"
@@ -113,14 +116,15 @@ namespace Snout
                     {
                         // There is supposed to be a method call                        
                         method.AppendFormat("({0})",
+                            parameters.Any() ?
                             parameters.Select(f =>
-                                                  {
-                                                      var dynamicAttribute = f.GetCustomAttributes(typeof (DynamicAttribute), true).OfType<DynamicAttribute>().FirstOrDefault();
+                            {
+                                var dynamicAttribute = f.GetCustomAttributes(typeof (DynamicAttribute), true).OfType<DynamicAttribute>().FirstOrDefault();
 
-                                                      return string.Format("{0} {1}", GetFullName(f.ParameterType,
-                                                          dynamicAttribute != null ? dynamicAttribute.TransformFlags : null),
-                                                                    f.Name);
-                                                  }).ToArray<object>());
+                                return string.Format("{0} {1}", GetFullName(f.ParameterType,
+                                    dynamicAttribute != null ? dynamicAttribute.TransformFlags : null),
+                                            f.Name);
+                            }).ToArray<object>() : new object[] { "" });
                         method.Append(@"
         {{
             builder." + builderCall + @";

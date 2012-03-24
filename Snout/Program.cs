@@ -38,9 +38,11 @@ namespace Snout
                 return;
             }
 
+            assemblyPath = Path.GetFullPath(assemblyPath);
+
             if (docPath == null)
             {
-                docPath = Path.GetFileNameWithoutExtension(assemblyPath) + ".xml";
+                docPath = Path.Combine(Path.GetDirectoryName(assemblyPath),Path.GetFileNameWithoutExtension(assemblyPath) + ".xml");
             }
 
             if (outputPath == null)
@@ -48,7 +50,10 @@ namespace Snout
                 outputPath = Directory.GetCurrentDirectory();
             }
 
-            var targetAssembly = Assembly.LoadFile(Path.GetFullPath(assemblyPath));
+            Console.WriteLine("Generating DSL from assembly {0}", assemblyPath);
+            var targetAssembly = Assembly.LoadFile(assemblyPath);
+
+            Console.WriteLine("Loading documentation from {0}", docPath);
             var commentReader = new XmlDocCommentReader(docPath);
 
             foreach (var type in targetAssembly.GetTypes())
