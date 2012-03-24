@@ -3,6 +3,7 @@ using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Xml.Linq;
 using Jolt;
@@ -14,14 +15,17 @@ namespace Snout
     {
         private class SetMember
         {
-            public SetMember(int ns, string c)
+            public SetMember(int ns, string c, string doc)
             {
                 NextState = ns;
                 Content = c;
+                Documentation = doc;
             }
 
             public int NextState;
             public readonly string Content;
+
+            public string Documentation { get; private set; }
 
             public bool Equals(SetMember other)
             {
@@ -94,7 +98,9 @@ namespace Snout
                     if (newState < 0)
                         continue;
 
-                    items.Add(new SetMember(newState, terminals[terminal].DebugName));
+                    var debugName = terminals[terminal].DebugName;
+                    var dbgNameParts = debugName.Split('\0');
+                    items.Add(new SetMember(newState, dbgNameParts[0], dbgNameParts[1]));
                 }
 
                 states.Add(items);
@@ -117,15 +123,27 @@ namespace Snout
             for (int i = 0; i < states.Count; ++i)
             {
                 var state = states[i];
-                if (state != null)
+                if (state != null && state.Count > 0)
                 {
-                    output.WriteLine(string.Format("public class {0}{1}", syntaxStateClassname, i == 0 ? "" : i.ToString()));
+                    var className = string.Format("{0}{1}", syntaxStateClassname, i == 0 ? "" : i.ToString());
+                    output.WriteLine(string.Format("public class {0}", className));
                     output.WriteLine("{");
                     output.Indent++;
 
+                    // Create a member called builder that accepts the underlying builder class
+                    // and a matching constructor
+                    output.WriteLine("private {0} builder;", type.Name);
+                    output.WriteLine();
+                    output.WriteLine("public {0}({1} builder) {{ this.builder = builder; }}", className, type.Name);
+
                     foreach (var setMember in state)
                     {
-                        output.Write(@"{1}{0} ", setMember.NextState, syntaxStateClassname);
+                        output.WriteLine();
+                        foreach (var docLine in setMember.Documentation.Split('\n'))
+                        {
+                            output.WriteLine(docLine.Trim());
+                        }
+                        output.Write(@"public {1}{0} ", setMember.NextState, syntaxStateClassname);
                         output.WriteLine(String.Format(setMember.Content, syntaxStateClassname, setMember.NextState));
                     }
                     output.Indent--;

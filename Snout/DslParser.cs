@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Xml;
 using Jolt;
 using Piglet.Parser;
 using Piglet.Parser.Configuration;
@@ -127,7 +128,7 @@ namespace Snout
         }}");
                     }
 
-                    terminal.DebugName = method.ToString();
+                    terminal.DebugName = method + "\0" + GetDocumentation(methodInfo, commentReader);
                     terminals.Add(attribute.DslName, terminal);
                     Terminals.Add(terminal);
                 }
@@ -184,6 +185,16 @@ namespace Snout
             bnfParser.Parse(input);
             
             return dslConfigurator.CreateParser();
+        }
+
+        private string GetDocumentation(MethodInfo method, XmlDocCommentReader commentReader)
+        {
+            var methodComments = commentReader.GetComments(method);
+
+            // We are going to take the comments verbatim, but remove the <buildermethod/> tag
+            var builderNode = methodComments.Descendants().Single(f => f.Name == "buildermethod");
+            builderNode.Remove();
+            return "///" + string.Join("\n///", methodComments.Nodes().SelectMany( n => n.ToString().Split('\n').Where(f => !string.IsNullOrWhiteSpace(f)).Select(f => f.TrimStart())));
         }
 
         private BuilderMethod GetBuilderMethod(MethodInfo methodInfo, XmlDocCommentReader commentReader)

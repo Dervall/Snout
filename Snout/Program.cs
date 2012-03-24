@@ -48,7 +48,7 @@ namespace Snout
                 outputPath = Directory.GetCurrentDirectory();
             }
 
-            var targetAssembly = Assembly.LoadFile(assemblyPath);
+            var targetAssembly = Assembly.LoadFile(Path.GetFullPath(assemblyPath));
             var commentReader = new XmlDocCommentReader(docPath);
 
             foreach (var type in targetAssembly.GetTypes())
@@ -64,7 +64,7 @@ namespace Snout
                         var dslBuilder = new DslBuilder(builderClassNode, commentReader, type);
                         string dslCode = dslBuilder.CreateDslCode();
 
-                        using (var fileWriter = new StreamWriter(new FileStream(Path.Combine(outputPath, outputFile), FileMode.OpenOrCreate, FileAccess.Write)))
+                        using (var fileWriter = new StreamWriter(new FileStream(Path.Combine(outputPath, outputFile), FileMode.Create, FileAccess.Write)))
                         {
                             fileWriter.Write(dslCode);
                         }
