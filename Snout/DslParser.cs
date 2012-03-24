@@ -217,7 +217,7 @@ namespace Snout
                         return attribute == null ? defaultValue : attribute.Value;
                     };
 
-                    string fluentName = builderMethodNode.Attributes().Single(f => f.Name == "name").Value;
+                    string fluentName = attributeValueOrDefault("name", methodInfo.Name);
                     string dslName = attributeValueOrDefault("dslname", fluentName);
                     bool useProperty = Convert.ToBoolean(attributeValueOrDefault("useproperty", "true"));
 
