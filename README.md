@@ -1,6 +1,9 @@
 Snout
 =====
 
+NOTE! Snout isn't really working yet, everything is subject to change. Especially the way the grammar is built which is NOT working right now. It will probably
+be regular grammars instead of context free ones once this is done.
+
 What is Snout?
 --------------
 
