@@ -157,7 +157,9 @@ namespace Snout
                     return t;
                 }
             );
-            
+
+            configurator.LexerSettings.Ignore = configurator.LexerSettings.Ignore.Concat(new[] { @"/\*([^*]+|\*[^/])*\*/" }).ToArray();
+
             var grammar = configurator.CreateNonTerminal();
             var ruleList = configurator.CreateNonTerminal();
             var rule = configurator.CreateNonTerminal();

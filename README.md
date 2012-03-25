@@ -52,9 +52,9 @@ transferred to the generated builder code (except for the extra snout specific t
 
 An example first, explanations below:
 
-pen.AddCircle().WithRadius(10)
-   .AddRectangle().Width(10).Height(10)
-   .AddPolygon().Point(1,2).Point(2,9).Point(4,8);
+pen.AddCircle.WithRadius(10)
+   .AddRectangle.Width(10).Height(10)
+   .AddPolygon.Point(1,2).Point(2,9).Point(4,8);
 
 ```csharp
 /// <summary>...</summary>
@@ -77,6 +77,10 @@ pen.AddCircle().WithRadius(10)
 /// </builderclass>
 class ShapeBuilder
 {
+	/// <summary>Add a circle</summary>
+	/// <buildermethod/>
+	void AddCircle() { ... }
+
     /// <summary>Set the circle radius</summary>
 	/// <param name="radius">Circle radius</param>
 	/// <buildermethod name="WithRadius"/>

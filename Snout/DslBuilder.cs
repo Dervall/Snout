@@ -106,8 +106,32 @@ namespace Snout
                 states.Add(items);
             }
 
-            ReduceStates(states);
+//            ReduceStates(states);
 
+            return CreateDslCode(states);
+        }
+
+        private static int FindEndOfReduceChain(int action, int terminal, int state, IParseTable<object> table)
+        {
+            if (action >= 0)
+                return action;
+
+            if (action == Int16.MinValue)
+                return -1;
+            if (action == Int16.MaxValue)
+                return -2;
+
+            // It is a reduce
+            state = table.Goto[state, table.ReductionRules[-(action + 1)].TokenToPush];
+            if (state == Int16.MinValue)
+                return -1;
+            action = table.Action[state, terminal];
+
+            return FindEndOfReduceChain(action, terminal, state, table);
+        }
+
+        private string CreateDslCode(List<List<SetMember>> states)
+        {
             // Create the output string
             var sb = new StringBuilder();
             var output = new IndentedTextWriter(new StringWriter(sb));
@@ -116,7 +140,8 @@ namespace Snout
             output.WriteLine("using System;");
             output.WriteLine("using System.ComponentModel;");
 
-            if (type.Namespace != outputNamespace){
+            if (type.Namespace != outputNamespace)
+            {
                 output.WriteLine(string.Format("using {0};", type.Namespace));
                 output.WriteLine();
             }
@@ -146,10 +171,11 @@ namespace Snout
             for (int i = 0; i < states.Count; ++i)
             {
                 var state = states[i];
-                if (state != null && state.Count > 0)
+                if (state != null) // && state.Count > 0)
                 {
                     var className = string.Format("{0}{1}", syntaxStateClassname, i == 0 ? "" : i.ToString());
-                    output.WriteLine(string.Format("public class {0} : IHide{1}ObjectMembers", className, syntaxStateClassname));
+                    output.WriteLine(string.Format("public class {0} : IHide{1}ObjectMembers", className,
+                                                   syntaxStateClassname));
                     output.WriteLine("{");
                     output.Indent++;
 
@@ -166,8 +192,10 @@ namespace Snout
                         {
                             output.WriteLine(docLine.Trim());
                         }
-                        output.Write(@"public {1}{0} ", setMember.NextState == 0 ? "" : setMember.NextState.ToString(), syntaxStateClassname);
-                        output.WriteLine(String.Format(setMember.Content, syntaxStateClassname, setMember.NextState == 0 ? "" : setMember.NextState.ToString()));
+                        output.Write(@"public {1}{0} ", setMember.NextState == 0 ? "" : setMember.NextState.ToString(),
+                                     syntaxStateClassname);
+                        output.WriteLine(String.Format(setMember.Content, syntaxStateClassname,
+                                                       setMember.NextState == 0 ? "" : setMember.NextState.ToString()));
                     }
                     output.Indent--;
                     output.WriteLine("}");
@@ -229,25 +257,6 @@ namespace Snout
                     }
                 }
             }
-        }
-
-        private static int FindEndOfReduceChain(int action, int terminal, int state, IParseTable<object> table)
-        {
-            if (action > 0)
-                return action;
-
-            if (action == Int16.MinValue)
-                return -1;
-            if (action == Int16.MaxValue)
-                return -2;
-
-            // It is a reduce
-            state = table.Goto[state, table.ReductionRules[-(action + 1)].TokenToPush];
-            if (state == Int16.MinValue)
-                return -1;
-            action = table.Action[state, terminal];
-
-            return FindEndOfReduceChain(action, terminal, state, table);
         }
     }
 }
