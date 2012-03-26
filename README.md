@@ -55,28 +55,10 @@ transferred to the generated builder code (except for the extra snout specific t
 
 An example first, explanations below:
 
-pen.AddCircle.WithRadius(10)
-   .AddRectangle.Width(10).Height(10)
-   .AddPolygon.Point(1,2).Point(2,9).Point(4,8);
-
 ```csharp
 /// <summary>...</summary>
-/// <builderclass name="ShapeSyntax" namespace="YourNamespace">
-///
-///   shapeList : shapeList shape
-///             | shape ;
-///   
-///   shape : circle | rectangle | polygon ;
-///   
-///   circle : AddCircle WithRadius ;
-///   
-///   rectangle : AddRectangle Width Height ;
-///   
-///   polygon : AddPolygon pointList ;
-///   
-///   pointList : pointList Point 
-///             | Point ;
-///
+/// <builderclass name="ShapeSyntax" namespace="Snout.Example">
+/// (AddCircle WithRadius | AddRectangle Width Height | AddPolygon Point+ ) +
 /// </builderclass>
 class ShapeBuilder
 {
@@ -125,9 +107,22 @@ Namespace of the generated classes.
 
 ## Content
 
-Content of this node is a BNF style grammar that defines your fluent interface. The first rule will generate the initial
-state. All terminals must be defined as buildermethods below. If you haven't defined the buildermethod it will be treated
-as a nonterminal. The style is remeniscent of bison. Any context free grammar will do.
+Content of this node is a regular grammar, defined as a regular expression of sorts. Instead of letters you use the
+symbols that determined by the dslname of the buildermethod tags. If dslname is not specified, use the name attribute.
+If name isn't specified use the name of the commented methods.
+
+### Operators ###
+
+Similar to regular expressions you can use operators. They act the same way as you'd expect and the priorities are
+the same as using regular expressions. Supported operators are:
+
+- + Repeat once or more time
+- ? Repeat zero or once
+- * Repeat zero or more
+- | Alternation, use either side of the operator.
+- () Parenthesis are used just as with regular expressions. There is no concept of capture groups, just use normal undecorated parenthesis.
+
+Whitespace is ignored. You can use c-style comments.
 
 &lt;buildermethod&gt;
 ---------------------
