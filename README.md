@@ -2,6 +2,10 @@ Snout
 =====
 - the fluent interface generator for .NET
 
+**NOTE** Snout is very much in an alpha state, and if you intend to use it, it's pretty much at your own risk. It's running code right now, but 
+it generates unweildy code and I'm experimenting to see if this stuff can be made context free, because that would be awesome. At least the way
+you define your grammar will change from what there is now.
+
 What is Snout?
 --------------
 

@@ -20,7 +20,7 @@ namespace Snout
                 Documentation = doc;
             }
 
-            public readonly int NextState;
+            public int NextState;
             public readonly string Content;
 
             public string Documentation { get; private set; }
@@ -92,8 +92,59 @@ namespace Snout
 
                 states.Add(items);
             }
-
+            ReduceStates(states);
             return CreateDslCode(states);
+        }
+
+        private void ReduceStates(List<List<SetMember>> states)
+        {
+            // Reduce the number of states
+            bool restart = true;
+
+            while (restart)
+            {
+                restart = false;
+
+                for (int i = 0; i < states.Count - 1 && !restart; ++i)
+                {
+                    var a = states[i];
+
+                    if (a == null)
+                        continue;
+
+                    for (int j = i + 1; j < states.Count && !restart; ++j)
+                    {
+                        // Compare the
+                        var b = states[j];
+                        if (b == null)
+                            continue;
+
+                        // If the number of states aren't equal these states are not candidates for
+                        // replacing
+                        if (a.Count != b.Count) continue;
+
+                        if (!a.Where((t, x) => !t.Equals(b[x])).Any())
+                        {
+                            // Remove one of the states, replace the NextState of all
+                            // the states that referred to state j with state i.
+                            states[j] = null;
+
+                            foreach (var state in states)
+                            {
+                                if (state != null)
+                                {
+                                    foreach (var tuple in state)
+                                    {
+                                        if (tuple.NextState == j)
+                                            tuple.NextState = i;
+                                    }
+                                }
+                            }
+                            restart = true;
+                        }
+                    }
+                }
+            }
         }
 
         private string CreateDslCode(List<List<SetMember>> states)
