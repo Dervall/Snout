@@ -3,11 +3,9 @@ using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Text;
 using System.Xml.Linq;
 using Jolt;
-using Piglet.Parser.Construction;
 
 namespace Snout
 {
@@ -22,7 +20,7 @@ namespace Snout
                 Documentation = doc;
             }
 
-            public int NextState;
+            public readonly int NextState;
             public readonly string Content;
 
             public string Documentation { get; private set; }
@@ -69,65 +67,33 @@ namespace Snout
         public string CreateDslCode()
         {
             var dslParser = new DslParser();
-            var parser = dslParser.CreateDslParserFromBnf(input, type, commentReader);
+            var dslLexer = dslParser.CreateDslParserFromRegularExpression(input, type, commentReader);
             
-            var terminals = dslParser.Terminals;
-            var table = parser.ParseTable;
+            var identifiers = dslParser.Identifiers;
+            var table = dslLexer.Table;
 
             var states = new List<List<SetMember>>();
 
             // For each state in the table, generate a class with the given commands
             // and the resulting 
-            for (var state = 0; state < table.StateCount; ++state)
+            for (var state = 0; state < dslLexer.StateCount; ++state)
             {
                 var items = new List<SetMember>();
 
-                for (var terminal = 0; terminal < terminals.Count; ++terminal)
+                foreach (var inputChar in identifiers.Keys)
                 {
-                    var action = table.Action[state, terminal];
-                    
-                    // If action is error, continue
-                    if (action == Int16.MinValue) continue;
-                    
-                    // Ignore the accept
-                    if (action == Int16.MaxValue)
-                        continue;
-
-                    int newState = FindEndOfReduceChain(action, terminal, state, table);
-
-                    if (newState < 0)
-                        continue;
-
-                    var debugName = terminals[terminal].DebugName;
-                    var dbgNameParts = debugName.Split('\0');
-                    items.Add(new SetMember(newState, dbgNameParts[0], dbgNameParts[1]));
+                    var nextState = table[state, inputChar];
+                    if (nextState >= 0)
+                    {
+                        var identifier = identifiers[inputChar];
+                        items.Add(new SetMember(nextState, identifier.MethodContents, identifier.Documentation));
+                    }
                 }
 
                 states.Add(items);
             }
 
-//            ReduceStates(states);
-
             return CreateDslCode(states);
-        }
-
-        private static int FindEndOfReduceChain(int action, int terminal, int state, IParseTable<object> table)
-        {
-            if (action >= 0)
-                return action;
-
-            if (action == Int16.MinValue)
-                return -1;
-            if (action == Int16.MaxValue)
-                return -2;
-
-            // It is a reduce
-            state = table.Goto[state, table.ReductionRules[-(action + 1)].TokenToPush];
-            if (state == Int16.MinValue)
-                return -1;
-            action = table.Action[state, terminal];
-
-            return FindEndOfReduceChain(action, terminal, state, table);
         }
 
         private string CreateDslCode(List<List<SetMember>> states)
@@ -206,57 +172,6 @@ namespace Snout
             output.WriteLine("}");
             output.Close();
             return sb.ToString();
-        }
-
-        private void ReduceStates(List<List<SetMember>> states)
-        {
-            // Reduce the number of states
-            bool restart = true;
-
-            while (restart)
-            {
-                restart = false;
-
-                for (int i = 0; i < states.Count - 1 && !restart; ++i)
-                {
-                    var a = states[i];
-
-                    if (a == null)
-                        continue;
-
-                    for (int j = i + 1; j < states.Count && !restart; ++j)
-                    {
-                        // Compare the
-                        var b = states[j];
-                        if (b == null)
-                            continue;
-
-                        // If the number of states aren't equal these states are not candidates for
-                        // replacing
-                        if (a.Count != b.Count) continue;
-
-                        if (!a.Where((t, x) => !t.Equals(b[x])).Any())
-                        {
-                            // Remove one of the states, replace the NextState of all
-                            // the states that referred to state j with state i.
-                            states[j] = null;
-
-                            foreach (var state in states)
-                            {
-                                if (state != null)
-                                {
-                                    foreach (var tuple in state)
-                                    {
-                                        if (tuple.NextState == j)
-                                            tuple.NextState = i;
-                                    }
-                                }
-                            }
-                            restart = true;
-                        }
-                    }
-                }
-            }
         }
     }
 }

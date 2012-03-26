@@ -6,22 +6,8 @@ using System.Text;
 namespace Snout.Example
 {
     /// <summary>...</summary>
-    /// <builderclass name="ShapeSyntax" namespace="YourNamespace">
-    ///
-    ///  /* shapeList : shapeList shape
-    ///             | shape ;
-    ///   
-    ///   shape : circle | rectangle | polygon ;
-    ///   
-    ///   circle : AddCircle WithRadius ;
-    ///   
-    ///   rectangle : AddRectangle Width Height ; */
-    ///   
-    ///   polygon : AddPolygon pointList Height ; 
-    ///   
-    ///   pointList : pointList Width Point 
-    ///             | Point ;
-    ///
+    /// <builderclass name="ShapeSyntax" namespace="Snout.Example">
+    /// (AddCircle WithRadius | AddRectangle Width Height | AddPolygon Point+ ) +
     /// </builderclass>
     public class ShapeBuilder
     {
